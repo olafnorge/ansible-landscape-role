@@ -1,0 +1,116 @@
+---
+landscape_olafnorge_de_compose:
+  version: "3.7"
+  services:
+    landscape:
+      deploy:
+        labels: "{{ landscape_olafnorge_de_labels }}"
+        placement:
+          constraints:
+            - node.role != manager
+        replicas: 1
+        restart_policy:
+          condition: on-failure
+          delay: 5s
+          max_attempts: 5
+          window: 300s
+        update_config:
+          failure_action: rollback
+          monitor: 120s
+      environment:
+        DB_PASS: "{{ '/run/secrets/' if landscape_olafnorge_de_use_secrets else '' }}{{ landscape_olafnorge_de_environment.db_pass }}"
+        DB_LANDSCAPE_PASS: "{{ '/run/secrets/' if landscape_olafnorge_de_use_secrets else '' }}{{ landscape_olafnorge_de_environment.db_landscape_pass }}"
+        FQDN: "{{ landscape_olafnorge_de_environment.fqdn | default('example.com') }}"
+        RMQ_PASS: "{{ '/run/secrets/' if landscape_olafnorge_de_use_secrets else '' }}{{ landscape_olafnorge_de_environment.rabbitmq_password }}"
+        RMQ_USER: "{{ landscape_olafnorge_de_environment.rabbitmq_user | default('landscape') }}"
+        SMTP_HOST: "{{ landscape_olafnorge_de_environment.smtp_host | default('webmail.example.com') }}"
+        SMTP_PORT: "{{ landscape_olafnorge_de_environment.smtp_port | default('587') }}"
+        SMTP_USER: "{{ landscape_olafnorge_de_environment.smtp_user | default('landscape@example.com') }}"
+        SMTP_PASS: "{{ '/run/secrets/' if landscape_olafnorge_de_use_secrets else '' }}{{ landscape_olafnorge_de_environment.smtp_pass }}"
+        SMTP_FROM: "{{ landscape_olafnorge_de_environment.smtp_from | default('landscape@example.com') }}"
+      image: "olafnorge/landscape:{{ landscape_olafnorge_de_version }}"
+      networks: "{{ landscape_olafnorge_de_networks }}"
+      volumes:
+        - /etc/localtime:/etc/localtime:ro
+        - /etc/timezone:/etc/timezone:ro
+    database:
+      deploy:
+        placement:
+          constraints:
+            - node.role != manager
+        replicas: 1
+        restart_policy:
+          condition: on-failure
+          delay: 5s
+          max_attempts: 5
+          window: 300s
+        update_config:
+          failure_action: rollback
+          monitor: 120s
+      environment:
+        - POSTGRES_USER={{ landscape_olafnorge_de_environment.db_user | default('postgres') }}
+        - POSTGRES_PASSWORD{{ '_FILE' if landscape_olafnorge_de_use_secrets else '' }}={{ '/run/secrets/' if landscape_olafnorge_de_use_secrets else '' }}{{ landscape_olafnorge_de_environment.db_pass }}
+      image: "olafnorge/landscape-postgres:{{ landscape_olafnorge_de_version }}"
+      networks:
+        - "{{ landscape_olafnorge_de_network_internal }}"
+      volumes:
+        - /etc/localtime:/etc/localtime:ro
+        - /etc/timezone:/etc/timezone:ro
+    queue:
+      deploy:
+        placement:
+          constraints:
+            - node.role != manager
+        replicas: 1
+        restart_policy:
+          condition: on-failure
+          delay: 5s
+          max_attempts: 5
+          window: 300s
+        update_config:
+          failure_action: rollback
+          monitor: 120s
+      environment:
+        - RABBITMQ_DEFAULT_USER={{ landscape_olafnorge_de_environment.rabbitmq_user | default('landscape') }}
+        - RABBITMQ_DEFAULT_PASS{{ '_FILE' if landscape_olafnorge_de_use_secrets else '' }}={{ '/run/secrets/' if landscape_olafnorge_de_use_secrets else '' }}{{ landscape_olafnorge_de_environment.rabbitmq_password | default('') }}
+      image: rabbitmq:3.7-management
+      networks:
+        - "{{ landscape_olafnorge_de_network_internal }}"
+      volumes:
+        - /etc/localtime:/etc/localtime:ro
+        - /etc/timezone:/etc/timezone:ro
+  networks: "{{ landscape_olafnorge_de_network_definitions }}"
+
+landscape_olafnorge_de_labels: []
+landscape_olafnorge_de_name: landscapeolafnorgede
+landscape_olafnorge_de_network_definitions: []
+landscape_olafnorge_de_network_internal: internal
+landscape_olafnorge_de_networks: []
+landscape_olafnorge_de_version: latest
+landscape_olafnorge_de_use_secrets: yes
+
+landscape_olafnorge_de_environment:
+  db_pass: "{{ landscape_olafnorge_de_secrets.db_pass.name if landscape_olafnorge_de_use_secrets else landscape_olafnorge_de_db_pass }}"
+  db_landscape_pass: "{{ landscape_olafnorge_de_secrets.db_landscape_pass.name if landscape_olafnorge_de_use_secrets else landscape_olafnorge_de_db_landscape_pass }}"
+  rabbitmq_password: "{{ landscape_olafnorge_de_secrets.rabbitmq_password.name if landscape_olafnorge_de_use_secrets else landscape_olafnorge_de_rabbitmq_password }}"
+  smtp_pass: "{{ landscape_olafnorge_de_secrets.smtp_pass.name if landscape_olafnorge_de_use_secrets else landscape_olafnorge_de_smtp_pass }}"
+
+landscape_olafnorge_de_secrets:
+  db_pass:
+    data: "{{ landscape_olafnorge_de_db_pass }}"
+    name: landscape_olafnorge_de_db_pass
+  db_landscape_pass:
+    data: "{{ landscape_olafnorge_de_db_landscape_pass }}"
+    name: landscape_olafnorge_de_db_landscape_pass
+  rabbitmq_password:
+    data: "{{ landscape_olafnorge_de_rabbitmq_password }}"
+    name: landscape_olafnorge_de_rabbitmq_password
+  smtp_pass:
+    data: "{{ landscape_olafnorge_de_smtp_pass }}"
+    name: landscape_olafnorge_de_smtp_pass
+
+# vaults, you may define them in a separate file which overrides these defaults
+landscape_olafnorge_de_db_pass: # FIXME: add your vault here using 'ansible-vault'
+landscape_olafnorge_de_db_landscape_pass: # FIXME: add your vault here using 'ansible-vault'
+landscape_olafnorge_de_rabbitmq_password: # FIXME: add your vault here using 'ansible-vault'
+landscape_olafnorge_de_smtp_pass: # FIXME: add your vault here using 'ansible-vault'
